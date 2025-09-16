@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/races/roll",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}

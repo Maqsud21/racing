@@ -1,0 +1,111 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String  @id @default(cuid())
+  walletAddress String  @unique
+  createdAt     DateTime @default(now())
+  points        Int      @default(0)
+  accuracyPct   Float    @default(0) // denormalized helper
+  streak        Int      @default(0)
+  // Referral fields
+  referralCode  String?  @unique // user's unique referral code
+  referredBy    String?  // wallet address of referrer
+  referralCount Int      @default(0) // number of successful referrals
+  referralPoints Int     @default(0) // points earned from referrals
+  votes         Vote[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  nonce     String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+enum RaceStatus { 
+  OPEN 
+  LOCKED 
+  SETTLED 
+}
+
+model Race {
+  id         String     @id
+  startAt    DateTime
+  endAt      DateTime
+  status     RaceStatus @default(OPEN)
+  winner     Roach?
+  createdAt  DateTime   @default(now())
+  votes      Vote[]
+  uniqueIdx  Int        @unique // incremental race counter for display
+
+  @@map("races")
+}
+
+enum Roach { 
+  JESSE 
+  BRIAN 
+  GREG 
+  DALE 
+}
+
+model Vote {
+  id            String   @id @default(cuid())
+  raceId        String
+  userId        String
+  pick          Roach
+  sig           String   // base58 signature of signed payload
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  race          Race     @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  
+  @@unique([raceId, userId]) // one vote per race per user
+  @@map("votes")
+}
+
+model Config {
+  id                 Int      @id @default(1)
+  pointsPerCorrect   Int      @default(1)
+  enableStreaks      Boolean  @default(false)
+  lastRaceNumber     Int      @default(0)
+
+  @@map("config")
+}
+
+model RaceSchedule {
+  id          String   @id @default(cuid())
+  scheduledAt DateTime // when the next race should start
+  duration    Int      @default(600) // race duration in seconds (10 minutes)
+  isActive    Boolean  @default(true) // whether this schedule is active
+  createdAt   DateTime @default(now())
+  createdBy   String?  // admin wallet address who created this schedule
+
+  @@map("race_schedules")
+}
+
+model Referral {
+  id            String   @id @default(cuid())
+  referrerCode  String   // referral code used
+  refereeWallet String   // wallet address of referred user
+  pointsAwarded Int      @default(0) // points awarded to referrer
+  createdAt     DateTime @default(now())
+  
+  @@unique([referrerCode, refereeWallet]) // one referral per code per wallet
+  @@map("referrals")
+}
